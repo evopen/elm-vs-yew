@@ -1,17 +1,15 @@
 use crate::utils;
+use gloo_events::EventListener;
 use log::*;
 use serde_derive::{Deserialize, Serialize};
-use yew::prelude::*;
-use yew::services::resize::{ResizeTask, WindowDimensions};
-use yew::services::ResizeService;
+use yew::{html::Scope, prelude::*};
 
 const DIV_SIZE: f64 = 10.0;
 
 #[allow(dead_code)]
 pub struct App {
-    link: ComponentLink<Self>,
     state: State,
-    resize: ResizeTask,
+    listener: EventListener,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,14 +19,15 @@ pub struct State {
 
 pub enum Msg {
     Toggle(usize, usize, bool),
-    Resize(WindowDimensions),
+    Resize,
 }
 
 impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
+        let link = ctx.link().clone();
         let root_element = utils::get_root_element().get_bounding_client_rect();
         let inner_height = (root_element.height() / DIV_SIZE).ceil() as usize;
         let inner_width = (root_element.width() / DIV_SIZE).floor() as usize;
@@ -38,35 +37,30 @@ impl Component for App {
         let entries = vec![vec![false; inner_width]; inner_height];
         let state = State { entries };
 
-        let resize_callback = link.callback(Self::Message::Resize);
+        // let resize_callback = link.callback(Self::Message::Resize);
+        let link = link.clone();
+        let listener = EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
+            link.send_message(Msg::Resize)
+        });
 
-        App {
-            link,
-            state,
-            resize: ResizeService::new().register(resize_callback),
-        }
+        App { state, listener }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        debug!("Change");
-
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         debug!("Update");
         match msg {
             Msg::Toggle(i, j, state) => {
                 self.state.toggle(i, j, state);
             }
-            Msg::Resize(_) => {
+            Msg::Resize => {
                 self.state.resize();
             }
         }
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let link = ctx.link();
         debug!("Rendered");
 
         html! {
@@ -74,9 +68,9 @@ impl Component for App {
                 {
                     for self.state.entries.iter().enumerate().map(|(i, row)| {
                         html! {
-                            <div class="row" key=format!("row-{}", i)>
+                            <div class="row" key={format!("row-{}", i)}>
                                 {
-                                    for row.iter().enumerate().map(|(j, cell)| self.view_cell(i, j, *cell))
+                                    for row.iter().enumerate().map(|(j, cell)| self.view_cell(i, j, *cell, link))
                                 }
                             </div>
                         }
@@ -88,18 +82,19 @@ impl Component for App {
 }
 
 impl App {
-    fn view_cell(&self, i: usize, j: usize, cell: bool) -> Html {
+    fn view_cell(&self, i: usize, j: usize, cell: bool, link: &Scope<Self>) -> Html {
         html! {
-            <div key=format!("cell-{}-{}", i, j)
-                 class=if cell {
-                    "cell cell--active"
-                 } else {
-                    "cell"
-                 }
-                 onmouseenter=self.link.callback(move |_| Msg::Toggle(i, j, true))
-                 onmouseleave=self.link.callback(move |_| Msg::Toggle(i, j, false))>
-            </div>
-        }
+        <div key={format!("cell-{}-{}", i, j)}
+             class={
+                 if cell {
+                "cell cell--active"
+             } else {
+                "cell"
+             }
+            }
+             onmouseenter={link.callback(move |_| Msg::Toggle(i, j, true))}
+             onmouseleave={link.callback(move |_| Msg::Toggle(i, j, false))}>
+        </div>        }
     }
 }
 

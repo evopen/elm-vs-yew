@@ -17,9 +17,7 @@ pub fn run_app() -> Result<(), JsValue> {
 
     let mount_div = utils::get_root_element();
 
-    yew::initialize();
-    yew::App::<app::App>::new().mount(mount_div);
-    yew::run_loop();
+    yew::start_app_in_element::<app::App>(mount_div);
 
     Ok(())
 }
