@@ -37,7 +37,6 @@ impl Component for App {
         let entries = vec![vec![false; inner_width]; inner_height];
         let state = State { entries };
 
-        // let resize_callback = link.callback(Self::Message::Resize);
         let link = link.clone();
         let listener = EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
             link.send_message(Msg::Resize)
@@ -85,13 +84,7 @@ impl App {
     fn view_cell(&self, i: usize, j: usize, cell: bool, link: &Scope<Self>) -> Html {
         html! {
         <div key={format!("cell-{}-{}", i, j)}
-             class={
-                 if cell {
-                "cell cell--active"
-             } else {
-                "cell"
-             }
-            }
+             class={classes!("cell", cell.then(|| "cell--active"))}
              onmouseenter={link.callback(move |_| Msg::Toggle(i, j, true))}
              onmouseleave={link.callback(move |_| Msg::Toggle(i, j, false))}>
         </div>        }
